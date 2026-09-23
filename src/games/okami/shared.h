@@ -26,6 +26,9 @@
 #define RENODX_TONE_MAP_BLOWOUT              shader_injection.tone_map_blowout
 #define RENODX_TONE_MAP_FLARE                shader_injection.tone_map_flare
 #define RENODX_GAMMA_CORRECTION              shader_injection.gamma_correction
+// Only read by the PsychoV31 path (ToneMapType == 4).
+#define RENODX_TONE_MAP_CONTRAST_HIGHLIGHTS  shader_injection.tone_map_contrast_highlights
+#define RENODX_TONE_MAP_CONTRAST_SHADOWS     shader_injection.tone_map_contrast_shadows
 // RenoDRT tone-map curve. The renodx::draw default is Daniele, but the
 // handle-sdr-tonemap-lut skill prefers the current methods (Neutwo / Reinhard)
 // and says not to use Daniele/Hermite as new choices. Fixed, not exposed - one
@@ -50,6 +53,8 @@ struct ShaderInjectData {
   float tone_map_blowout;
   float tone_map_flare;
   float gamma_correction;
+  float tone_map_contrast_highlights;
+  float tone_map_contrast_shadows;
 };
 
 #ifndef __cplusplus

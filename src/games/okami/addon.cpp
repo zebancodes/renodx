@@ -14,6 +14,7 @@
 #include "../../mods/shader.hpp"
 #include "../../mods/swapchain.hpp"
 #include "../../utils/settings.hpp"
+#include "./readback.hpp"
 #include "./shared.h"
 
 namespace {
@@ -39,8 +40,9 @@ renodx::utils::settings::Settings settings = {
         .label = "Tone Mapper",
         .section = "Tone Mapping",
         .tooltip = "Vanilla preserves the game's exact SDR look, lifted into the HDR container."
-                   "\nACES / RenoDRT re-tone-map the real scene for true HDR highlight rolloff (RenoDRT recommended).",
-        .labels = {"Vanilla", "None", "ACES", "RenoDRT"},
+                   "\nACES / RenoDRT tone map the upgraded frame's over-range (bloom, emissives) for HDR highlight rolloff (RenoDRT recommended)."
+                   "\nPsychoV is the PsychoV31 observer-model tone mapper.",
+        .labels = {"Vanilla", "None", "ACES", "RenoDRT", "PsychoV"},
     },
     new renodx::utils::settings::Setting{
         .key = "ToneMapPeakNits",
@@ -70,7 +72,10 @@ renodx::utils::settings::Settings settings = {
         .default_value = 1.f,
         .label = "Gamma Correction",
         .section = "Tone Mapping",
-        .tooltip = "Emulates a display EOTF. 2.2 is the standard sRGB-display gamma.",
+        .tooltip = "Emulates an SDR display EOTF."
+                   "\nOff: piecewise sRGB decode."
+                   "\n2.2: pure 2.2 power law."
+                   "\nBT.1886: pure 2.4 power law (BT.1886 with a zero black level).",
         .labels = {"Off", "2.2", "BT.1886"},
     },
     new renodx::utils::settings::Setting{
@@ -96,6 +101,17 @@ renodx::utils::settings::Settings settings = {
         .parse = [](float value) { return value * 0.02f; },
     },
     new renodx::utils::settings::Setting{
+        .key = "ColorGradeHighlightContrast",
+        .binding = &RENODX_TONE_MAP_CONTRAST_HIGHLIGHTS,
+        .default_value = 50.f,
+        .label = "Highlight Contrast",
+        .section = "Color Grading",
+        .tooltip = "Increases or decreases contrast above mid-gray.",
+        .max = 100.f,
+        .is_enabled = []() { return RENODX_TONE_MAP_TYPE == 4.f; },
+        .parse = [](float value) { return value * 0.02f; },
+    },
+    new renodx::utils::settings::Setting{
         .key = "ColorGradeShadows",
         .binding = &RENODX_TONE_MAP_SHADOWS,
         .default_value = 50.f,
@@ -104,6 +120,17 @@ renodx::utils::settings::Settings settings = {
         .tooltip = "Lifts or crushes the darkest parts of the image.",
         .max = 100.f,
         .is_enabled = []() { return RENODX_TONE_MAP_TYPE >= 1; },
+        .parse = [](float value) { return value * 0.02f; },
+    },
+    new renodx::utils::settings::Setting{
+        .key = "ColorGradeShadowContrast",
+        .binding = &RENODX_TONE_MAP_CONTRAST_SHADOWS,
+        .default_value = 50.f,
+        .label = "Shadow Contrast",
+        .section = "Color Grading",
+        .tooltip = "Increases or decreases contrast below mid-gray.",
+        .max = 100.f,
+        .is_enabled = []() { return RENODX_TONE_MAP_TYPE == 4.f; },
         .parse = [](float value) { return value * 0.02f; },
     },
     new renodx::utils::settings::Setting{
@@ -123,7 +150,7 @@ renodx::utils::settings::Settings settings = {
         .default_value = 50.f,
         .label = "Saturation",
         .section = "Color Grading",
-        .tooltip = "Increases or decreases the intensity of colors.",
+        .tooltip = "Scales chrominance (how far colors sit from neutral) while keeping their hue.",
         .max = 100.f,
         .is_enabled = []() { return RENODX_TONE_MAP_TYPE >= 1; },
         .parse = [](float value) { return value * 0.02f; },
@@ -158,7 +185,7 @@ renodx::utils::settings::Settings settings = {
         .section = "Color Grading",
         .tooltip = "Deepens near-black tones to counteract veiling glare / a raised black floor (great on OLED).",
         .max = 100.f,
-        .is_enabled = []() { return RENODX_TONE_MAP_TYPE == 3.f; },
+        .is_enabled = []() { return RENODX_TONE_MAP_TYPE >= 3.f; },
         .parse = [](float value) { return value * 0.01f; },
     },
     new renodx::utils::settings::Setting{
@@ -189,7 +216,9 @@ void OnPresetOff() {
   renodx::utils::settings::UpdateSetting("GammaCorrection", 0.f);
   renodx::utils::settings::UpdateSetting("ColorGradeExposure", 1.f);
   renodx::utils::settings::UpdateSetting("ColorGradeHighlights", 50.f);
+  renodx::utils::settings::UpdateSetting("ColorGradeHighlightContrast", 50.f);
   renodx::utils::settings::UpdateSetting("ColorGradeShadows", 50.f);
+  renodx::utils::settings::UpdateSetting("ColorGradeShadowContrast", 50.f);
   renodx::utils::settings::UpdateSetting("ColorGradeContrast", 50.f);
   renodx::utils::settings::UpdateSetting("ColorGradeSaturation", 50.f);
   renodx::utils::settings::UpdateSetting("ColorGradeHighlightSaturation", 50.f);
@@ -244,6 +273,9 @@ BOOL APIENTRY DllMain(HMODULE h_module, DWORD fdw_reason, LPVOID lpv_reserved) {
   renodx::utils::settings::Use(fdw_reason, &settings, &OnPresetOff);
   renodx::mods::shader::Use(fdw_reason, custom_shaders, &shader_injection);
   renodx::mods::swapchain::Use(fdw_reason, &shader_injection);
+  // The upgrade drops copies from its FP16 clones into the game's 8-bit
+  // staging textures; this converts them instead (Rejuvenation's mask).
+  okami::readback::Use(fdw_reason);
 
   return TRUE;
 }
