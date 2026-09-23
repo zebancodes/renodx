@@ -39,7 +39,8 @@ renodx::utils::settings::Settings settings = {
         .can_reset = false,
         .label = "Tone Mapper",
         .section = "Tone Mapping",
-        .tooltip = "Vanilla preserves the game's exact SDR look, lifted into the HDR container."
+        .tooltip = "Vanilla is the game's own hard-clipped SDR output in the HDR container."
+                   "\nThe FP16 render targets stay active, so blending and bloom can differ slightly from the unmodded game."
                    "\nACES / RenoDRT tone map the upgraded frame's over-range (bloom, emissives) for HDR highlight rolloff (RenoDRT recommended)."
                    "\nPsychoV is ShortFuse's PsychoV31 observer-model tone mapper.",
         .labels = {"Vanilla", "None", "ACES", "RenoDRT", "PsychoV"},
@@ -258,6 +259,11 @@ BOOL APIENTRY DllMain(HMODULE h_module, DWORD fdw_reason, LPVOID lpv_reserved) {
     case DLL_PROCESS_ATTACH:
       if (!reshade::register_addon(h_module)) return FALSE;
 
+      // Output stays on the swapchain module's default FP16 scRGB swap chain,
+      // which matches the FP16 render-target upgrade: the final blit writes
+      // linear BT.709 straight into it, including values outside BT.709,
+      // without a separate encode pass. HDR10 / SDR output modes are not
+      // implemented.
       renodx::mods::swapchain::use_resource_cloning = true;
 
       // Upgrade the game's B8G8R8A8 render targets to FP16 so the composited

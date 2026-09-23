@@ -12,21 +12,19 @@
  * geometry, the HUD alpha-blended straight in, then bloom. There is NO master
  * tone-map pass, NO HDR scene buffer, and NO whole-image LUT.
  *
- * IMPORTANT - why the 3-arg ToneMapPass with a saturate() base (not the 1-arg
- * form the hard-clip reference src/games/hollowknight-silksong uses): that
- * reference reads a CLEAN SDR render. Okami's composite is the FP16-UPGRADED
- * buffer, so the game's additive / blend ops no longer clamp - it carries
- * values outside the BT.709 [0,1] RGB cube (most visibly tiny negative blend
- * noise across the dark sky) that 8-bit unorm would have clamped. Feeding that
- * straight into the 1-arg ToneMapPass(DecodeSafe(composite)) sent ~70% of the
- * frame negative / invalid (measured). So we reconstruct off a gamut-safe base:
- *   untonemapped = DecodeSafe(composite)            // real FP16 over-range (and dirt)
- *   neutral/graded = DecodeSafe(saturate(composite)) // clamped, gamut-safe SDR
- *   ToneMapPass(untonemapped, graded, neutral)       // luminance reconstruction:
- *     SDR preserved off the clean base, real over-range lifted by the luminance
- *     ratio and hue-matched to the clean base -> stays in BT.709 (0% invalid).
- * The genuine HDR is still only the additive bloom / emissive over-range; nothing
- * is guessed (not ITM). Grade / brightness / gamma are all global.
+ * IMPORTANT - the composite is the FP16-UPGRADED buffer, so the game's additive
+ * / blend ops no longer clamp: it carries values outside the BT.709 [0,1] RGB
+ * cube on both sides. Below 0 is tiny negative blend noise (most visibly across
+ * the dark sky); feeding it raw into ToneMapPass(DecodeSafe(composite)) sent
+ * ~70% of the frame negative / invalid (measured). The 8-bit UNORM targets
+ * clamped that at 0, so the None / ACES / RenoDRT path clamps it the same way.
+ * Above 1 is the additive bloom / emissive over-range, the only real HDR in the
+ * frame, and is kept with its own chromaticity. There is no grade or LUT to
+ * preserve, so no SDR base is reconstructed: a saturate() base would give the
+ * over-range the per-channel clip's chromaticity (UpgradeToneMap rescales the
+ * clipped color to the original luminance), shifting e.g. orange emissives
+ * toward yellow. Nothing is guessed (not ITM). Grade / brightness / gamma are
+ * all global.
  *
  * Registered as a CustomSwapchainShader, so the conversion only runs on the draw
  * whose render target is the swapchain backbuffer. The bloom-downscale and
@@ -127,15 +125,17 @@ void main(
         0.f,   // Mean-A2 highlight source weight
         renodx::tonemap::psychov::PSYCHO30_SOURCE_BOUNDARY_BT709,
         1.f);
+  } else if (RENODX_TONE_MAP_TYPE == 0.f) {
+    // Vanilla: the game's own final-frame result, a per-channel hard clip, as
+    // the BGRA8 UNORM backbuffer applied it. The FP16 upgrade of the
+    // intermediate targets stays active, so blends and bloom that read
+    // over-range values can still differ slightly from the unmodded game.
+    color = renodx::color::srgb::DecodeSafe(saturate(composite));
   } else {
-    // Reconstruct HDR off a gamut-safe SDR base (see header). saturate() clamps
-    // the dirty FP16 composite to [0,1] BT.709; the over-range is recovered via
-    // the luminance ratio inside ToneMapPass.
-    float3 untonemapped = renodx::color::srgb::DecodeSafe(composite);
-    float3 neutral_sdr = renodx::color::srgb::DecodeSafe(saturate(composite));
-    float3 graded_sdr = neutral_sdr;
-
-    color = renodx::draw::ToneMapPass(untonemapped, graded_sdr, neutral_sdr);
+    // None / ACES / RenoDRT: clamp only the negative residue, as the 8-bit
+    // targets did, and keep the over-range intact (see header).
+    color = renodx::draw::ToneMapPass(
+        max(0.f, renodx::color::srgb::DecodeSafe(composite)));
   }
 
   color = renodx::draw::RenderIntermediatePass(color, config);  // encode intermediate
