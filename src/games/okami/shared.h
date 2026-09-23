@@ -29,9 +29,10 @@
 // Only read by the PsychoV31 path (ToneMapType == 4).
 #define RENODX_TONE_MAP_CONTRAST_HIGHLIGHTS  shader_injection.tone_map_contrast_highlights
 #define RENODX_TONE_MAP_CONTRAST_SHADOWS     shader_injection.tone_map_contrast_shadows
-// RenoDRT tone-map curve. The renodx::draw default is Daniele, but the
-// handle-sdr-tonemap-lut skill prefers the current methods (Neutwo / Reinhard)
-// and says not to use Daniele/Hermite as new choices. Fixed, not exposed - one
+// RenoDRT tone-map curve: Neutwo instead of the renodx::draw default (Daniele).
+// Daniele carries its own surround/contrast and shadow-toe terms; Neutwo is a
+// plain neutral shoulder (x / sqrt(x^2 + peak^2)), which suits a hard-clip
+// source with no toe or contrast curve to preserve. Fixed, not exposed - one
 // curve is plenty for Okami's sparse, near-white over-range.
 #define RENODX_RENO_DRT_TONE_MAP_METHOD      renodx::tonemap::renodrt::config::tone_map_method::NEUTWO
 // Hue correction (strength + processor), working color space, and per-channel

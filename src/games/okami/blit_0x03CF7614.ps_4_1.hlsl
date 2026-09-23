@@ -60,7 +60,9 @@ void main(
   float3 color;
   [branch]
   if (RENODX_TONE_MAP_TYPE == 4.f) {
-    // PsychoV31 (customtest31.hlsli), parameterized for Okami's pipeline. The
+    // PsychoV31 by ShortFuse (Carlos Lopez, MIT), through the custom Test31
+    // variant with Musa Haji's modifications (customtest31.hlsli, which keeps
+    // both copyright notices), parameterized for Okami's pipeline. The
     // composite is display-referred, nonlinear R'G'B' (BT.709 primaries, D65),
     // so PsychoV acts here as a display-referred highlight extension plus gamut
     // mapping, not as a scene-to-display OOTF:

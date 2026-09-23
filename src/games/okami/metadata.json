@@ -11,6 +11,8 @@
     "game_exe": "okami.exe",
     "process_name": "okami",
     "api": "d3d11",
-    "architecture": "x64"
+    "architecture": [
+      "x64"
+    ]
   }
 }

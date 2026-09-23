@@ -41,7 +41,7 @@ renodx::utils::settings::Settings settings = {
         .section = "Tone Mapping",
         .tooltip = "Vanilla preserves the game's exact SDR look, lifted into the HDR container."
                    "\nACES / RenoDRT tone map the upgraded frame's over-range (bloom, emissives) for HDR highlight rolloff (RenoDRT recommended)."
-                   "\nPsychoV is the PsychoV31 observer-model tone mapper.",
+                   "\nPsychoV is ShortFuse's PsychoV31 observer-model tone mapper.",
         .labels = {"Vanilla", "None", "ACES", "RenoDRT", "PsychoV"},
     },
     new renodx::utils::settings::Setting{
@@ -205,6 +205,16 @@ renodx::utils::settings::Settings settings = {
         .group = "button-line-1",
         .on_change = []() {
           renodx::utils::platform::LaunchURL("https://github.com/clshortfuse/renodx");
+        },
+    },
+    new renodx::utils::settings::Setting{
+        .value_type = renodx::utils::settings::SettingValueType::BUTTON,
+        .label = "ShortFuse's Ko-Fi",
+        .section = "Links",
+        .group = "button-line-2",
+        .tint = 0xFF5A16,
+        .on_change = []() {
+          renodx::utils::platform::LaunchURL("https://ko-fi.com/", "shortfuse");
         },
     },
 };
